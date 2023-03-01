@@ -1,24 +1,69 @@
 services:
-  webapp:
+  django:
     build:
       context: .
     ports:
       - "8000:8000"
     volumes:
-        - ./src:/src
+      - ./src:/src
     environment:
-      - DB_HOST=db
+      - DB_HOST=postgres
       - DB_NAME=dbname
       - DB_USER=dbuser
       - DB_PASS=dbpassword
     depends_on:
-      - db
+      - postgres
     command: >
       sh -c "python manage.py runserver 0.0.0.0:8000"
 
-  db:
+  postgres:
     image: postgres:14.6-alpine
     environment:
       - POSTGRES_DB=dbname
       - POSTGRES_USER=dbuser
       - POSTGRES_PASSWORD=dbpassword
+
+  redis:
+    image: redis:7.0.5-alpine
+    hostname: redis
+
+  celery-worker:
+    build:
+      context: .
+    hostname: worker
+    entrypoint: celery
+    command: -A celery_app.app worker --loglevel=INFO
+    volumes:
+      - ./src:/src
+    depends_on:
+      - redis
+    links:
+      - redis
+
+  celery-worker2:
+    build:
+      context: .
+    hostname: worker2
+    entrypoint: celery
+    command: -A celery_app.app worker --loglevel=INFO
+    volumes:
+      - ./src:/src
+    depends_on:
+      - redis
+    links:
+      - redis
+
+  celery-flower:
+    build:
+      context: .
+    hostname: flower
+    entrypoint: celery
+    command: -A celery_app.app flower
+    volumes:
+      - ./src:/src
+    depends_on:
+      - redis
+    links:
+      - redis
+    ports:
+      - "5555:5555"
